@@ -10,6 +10,7 @@ use collection::shards::replica_set::ReplicaState;
 use collection::shards::shard::ShardId;
 use storage::content_manager::errors::StorageError;
 use storage::content_manager::snapshots;
+use storage::content_manager::snapshots::recover::validate_checksum;
 use storage::content_manager::toc::TableOfContent;
 
 use super::http_client::HttpClient;
@@ -83,6 +84,7 @@ pub async fn recover_shard_snapshot(
     shard_id: ShardId,
     snapshot_location: ShardSnapshotLocation,
     snapshot_priority: SnapshotPriority,
+    checksum: Option<String>,
     client: HttpClient,
 ) -> Result<(), StorageError> {
     // - `download_dir` handled by `tempfile` and would be deleted, if request is cancelled
@@ -142,6 +144,7 @@ pub async fn recover_shard_snapshot(
             shard_id,
             &snapshot_path,
             snapshot_priority,
+            checksum,
             cancel,
         )
         .await;
@@ -169,6 +172,7 @@ pub async fn recover_shard_snapshot_impl(
     shard: ShardId,
     snapshot_path: &std::path::Path,
     priority: SnapshotPriority,
+    checksum: Option<String>,
     cancel: cancel::CancellationToken,
 ) -> Result<(), StorageError> {
     // `Collection::restore_shard_snapshot` and `activate_shard` calls *have to* be executed as a
@@ -178,6 +182,11 @@ pub async fn recover_shard_snapshot_impl(
 
     // `Collection::restore_shard_snapshot` is *not* cancel safe
     // (see `ShardReplicaSet::restore_local_replica_from`)
+
+    if let Some(checksum) = checksum.as_deref() {
+        validate_checksum(checksum, snapshot_path).await?;
+    }
+
     collection
         .restore_shard_snapshot(
             shard,

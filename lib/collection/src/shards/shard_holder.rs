@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 
 use super::replica_set::AbortShardTransfer;
 use crate::common::file_utils::move_file;
-use crate::common::sha_256::hash_file;
+use crate::common::sha_256::Checksum;
 use crate::config::{CollectionConfig, ShardingMethod};
 use crate::hash_ring::HashRing;
 use crate::operations::shard_selector_internal::ShardSelectorInternal;
@@ -757,7 +757,7 @@ impl ShardHolder {
 
         // Compute and store the file's checksum
         let checksum_path = get_checksum_path(&snapshot_path);
-        let checksum = hash_file(temp_file.path()).await?;
+        let checksum = Checksum::compute_from_file(temp_file.path()).await?.hex();
         let checksum_file = tempfile::TempPath::from_path(&checksum_path);
         let mut file = tokio::fs::File::create(checksum_path.as_path()).await?;
         file.write_all(checksum.as_bytes()).await?;

@@ -32,6 +32,7 @@ wal = { git = "https://github.com/qdrant/wal.git", rev = "fad0e7c48be58d8e7db4cc
 ordered-float = "4.2"
 hashring = "0.3.3"
 tinyvec = { version = "1.6.0", features = ["alloc"] }
+hex = "0.4"
 
 tokio = {version = "~1.35", features = ["full"]}
 tokio-util = "0.7"

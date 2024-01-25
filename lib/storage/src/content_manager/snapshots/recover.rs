@@ -1,4 +1,7 @@
+use std::path::Path;
+
 use collection::collection::Collection;
+use collection::common::sha_256::Checksum;
 use collection::config::CollectionConfig;
 use collection::operations::snapshot_ops::{SnapshotPriority, SnapshotRecover};
 use collection::shards::replica_set::ReplicaState;
@@ -12,6 +15,23 @@ use crate::content_manager::collection_meta_ops::{
 use crate::content_manager::snapshots::download::download_snapshot;
 use crate::dispatcher::Dispatcher;
 use crate::{StorageError, TableOfContent};
+
+pub async fn validate_checksum(
+    checksum: &str,
+    snapshot_path: &Path,
+) -> std::result::Result<(), StorageError> {
+    log::debug!("Validating retrieved snapshot against checksum");
+    if !Checksum::parse(checksum)?
+        .matches_file(snapshot_path)
+        .await?
+    {
+        return Err(StorageError::bad_input(
+            "Snapshot checksum does not match the request checksum",
+        ));
+    }
+
+    Ok(())
+}
 
 pub async fn activate_shard(
     toc: &TableOfContent,
@@ -70,7 +90,12 @@ async fn _do_recover_from_snapshot(
     source: SnapshotRecover,
     client: &reqwest::Client,
 ) -> Result<bool, StorageError> {
-    let SnapshotRecover { location, priority } = source;
+    let SnapshotRecover {
+        location,
+        priority,
+        checksum,
+    } = source;
+
     let toc = dispatcher.toc();
 
     let this_peer_id = toc.this_peer_id;
@@ -88,6 +113,10 @@ async fn _do_recover_from_snapshot(
         download_snapshot(client, location, download_dir.path()).await?;
 
     log::debug!("Snapshot downloaded to {}", snapshot_path.display());
+
+    if let Some(checksum) = checksum.as_deref() {
+        validate_checksum(checksum, &snapshot_path).await?;
+    }
 
     let temp_storage_path = toc.optional_temp_or_storage_temp_path()?;
 

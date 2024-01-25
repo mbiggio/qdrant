@@ -44,11 +44,13 @@ struct SnapshotPath {
 pub struct SnapshotUploadingParam {
     pub wait: Option<bool>,
     pub priority: Option<SnapshotPriority>,
+    pub checksum: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, JsonSchema, Validate)]
 pub struct SnapshottingParam {
     pub wait: Option<bool>,
+    pub checksum: Option<String>,
 }
 
 #[derive(MultipartForm)]
@@ -170,6 +172,7 @@ async fn upload_snapshot(
     let snapshot_recover = SnapshotRecover {
         location: snapshot_location,
         priority: params.priority,
+        checksum: params.checksum.clone(),
     };
 
     let response = do_recover_from_snapshot(
@@ -339,6 +342,7 @@ async fn recover_shard_snapshot(
             shard,
             request.location,
             request.priority.unwrap_or_default(),
+            request.checksum,
             http_client.as_ref().clone(),
         )
         .await?;
@@ -358,11 +362,14 @@ async fn upload_shard_snapshot(
     MultipartForm(form): MultipartForm<SnapshottingForm>,
 ) -> impl Responder {
     let (collection, shard) = path.into_inner();
-    let SnapshotUploadingParam { wait, priority } = query.into_inner();
+    let SnapshotUploadingParam {
+        wait,
+        priority,
+        checksum,
+    } = query.into_inner();
 
     // - `recover_shard_snapshot_impl` is *not* cancel safe
     //   - but the task is *spawned* on the runtime and won't be cancelled, if request is cancelled
-
     let future = cancel::future::spawn_cancel_on_drop(move |cancel| async move {
         let future = async {
             let collection = toc.get_collection(&collection).await?;
@@ -380,6 +387,7 @@ async fn upload_shard_snapshot(
             shard,
             form.snapshot.file.path(),
             priority.unwrap_or_default(),
+            checksum,
             cancel,
         )
         .await?;

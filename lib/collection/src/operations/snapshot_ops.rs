@@ -70,6 +70,8 @@ pub struct SnapshotRecover {
     /// If set to `Replica`, the current state will be used as a source of truth, and after recovery if will be synchronized with the snapshot.
     #[serde(default)]
     pub priority: Option<SnapshotPriority>,
+
+    pub checksum: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema, Clone)]
@@ -148,6 +150,8 @@ pub struct ShardSnapshotRecover {
 
     #[serde(default)]
     pub priority: Option<SnapshotPriority>,
+
+    pub checksum: Option<String>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]

@@ -4,7 +4,7 @@ pub mod recover;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use collection::common::sha_256::hash_file;
+use collection::common::sha_256::Checksum;
 use collection::operations::snapshot_ops::{
     get_checksum_path, get_snapshot_description, list_snapshots_in_directory, SnapshotDescription,
 };
@@ -223,7 +223,9 @@ async fn _do_create_full_snapshot(
 
     // Compute and store the file's checksum
     let checksum_path = get_checksum_path(&full_snapshot_path);
-    let checksum = hash_file(full_snapshot_path.as_path()).await?;
+    let checksum = Checksum::compute_from_file(full_snapshot_path.as_path())
+        .await?
+        .hex();
     let checksum_file = tempfile::TempPath::from_path(&checksum_path);
     let mut file = tokio::fs::File::create(checksum_path.as_path()).await?;
     file.write_all(checksum.as_bytes()).await?;

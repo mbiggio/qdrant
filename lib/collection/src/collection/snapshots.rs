@@ -9,7 +9,7 @@ use tokio::io::AsyncWriteExt;
 
 use super::Collection;
 use crate::collection::CollectionVersion;
-use crate::common::sha_256::hash_file;
+use crate::common::sha_256::Checksum;
 use crate::config::{CollectionConfig, ShardingMethod};
 use crate::operations::snapshot_ops::{self, SnapshotDescription};
 use crate::operations::types::{CollectionError, CollectionResult, NodeType};
@@ -138,7 +138,9 @@ impl Collection {
         // compute and store the file's checksum before the final snapshot file is saved
         // to avoid making snapshot available without checksum
         let checksum_path = snapshot_ops::get_checksum_path(&snapshot_path);
-        let checksum = hash_file(&snapshot_path_tmp_move).await?;
+        let checksum = Checksum::compute_from_file(&snapshot_path_tmp_move)
+            .await?
+            .hex();
         let checksum_file = tempfile::TempPath::from_path(&checksum_path);
         let mut file = tokio::fs::File::create(checksum_path.as_path()).await?;
         file.write_all(checksum.as_bytes()).await?;
